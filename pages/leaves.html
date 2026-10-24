@@ -1,0 +1,11 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Leave requests</title><link rel="stylesheet" href="../css/style.css"></head><body><header id="nav"></header><main><h1>Leave requests</h1><div class="card"><div class="tw"><table><thead><tr><th>Employee</th><th>Type</th><th>From</th><th>To</th><th>Days</th><th>Reason</th><th>Status</th><th>Comment / action</th></tr></thead><tbody id="rows"></tbody></table></div></div>
+</main><script src="../js/storage.js"></script><script src="../js/auth.js"></script><script src="../js/ui.js"></script><script src="../js/leave.js"></script><script src="../js/attendance.js"></script><script src="../js/helper.js"></script><script>
+const u=guard("admin");if(u){nav(u);
+function draw(){const L=getLeaves().slice().sort((a,b)=>(a.status==="pending"?0:1)-(b.status==="pending"?0:1)||b.id-a.id);
+ $("rows").innerHTML=rows(L,l=>`<tr><td>${esc(userName(l.uid))}</td><td>${l.type}</td><td>${l.from}</td><td>${l.to}</td><td>${l.days}</td><td>${esc(l.reason)}</td><td>${badge(l.status)}</td><td>${l.status==="pending"?`<input id="c${l.id}" placeholder="Comment" style="width:150px"> <button class="btn sm" data-a="${l.id}">Approve</button> <button class="btn sm red" data-r="${l.id}">Reject</button>`:esc(l.comment)}</td></tr>`,8)}
+$("rows").onclick=e=>{const id=+(e.target.dataset.a||e.target.dataset.r);if(!id)return;
+ const a=getLeaves(),l=a.find(x=>x.id===id),c=$("c"+id).value.trim(),ok=!!e.target.dataset.a;
+ if(!ok&&!c)return alert("Please write a comment to reject.");
+ l.status=ok?"approved":"rejected";l.comment=c;saveLeaves(a);draw()};
+draw()}
+</script></body></html>

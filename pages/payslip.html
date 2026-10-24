@@ -1,0 +1,16 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Payslip</title><link rel="stylesheet" href="../css/style.css"></head><body><header id="nav"></header><main><h1>Monthly payslip</h1><div class="card noprint"><div class="row"><div id="pick"><label>Employee</label><select id="emp"></select></div><div><label>Month</label><input type="month" id="month"></div></div>
+<button class="btn" onclick="print()">Print / Save as PDF</button></div><div class="card slip" id="slip"></div>
+</main><script src="../js/storage.js"></script><script src="../js/auth.js"></script><script src="../js/ui.js"></script><script src="../js/leave.js"></script><script src="../js/attendance.js"></script><script src="../js/helper.js"></script><script>
+const u=guard();if(u){nav(u);const adm=u.role==="admin",c=getCompany();
+$("pick").hidden=!adm;$("month").value=today().slice(0,7);
+if(adm)$("emp").innerHTML=getUsers().filter(x=>x.role==="employee").map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join("");
+const R=n=>"Rs "+n.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+function draw(){const e=adm?getUsers().find(x=>x.id===+$("emp").value):u;
+ if(!e)return $("slip").innerHTML="Add an employee first.";
+ const[y,m]=$("month").value.split("-").map(Number),s=monthStats(e,y,m),wd=workDaysInMonth(y,m),per=wd?e.salary/wd:0,ded=per*(s.absent+.5*s.half),net=e.salary-ded;
+ $("slip").innerHTML=`<h2>${esc(c.name)} — Payslip ${$("month").value}</h2><p><b>${esc(e.name)}</b><br>${esc(e.department)} · ${esc(e.email)}</p><table>
+ <tr><td>Monthly salary</td><td>${R(e.salary)}</td></tr><tr><td>Working days in month</td><td>${wd}</td></tr><tr><td>Per day</td><td>${R(per)}</td></tr>
+ <tr><td>Absent days</td><td>${s.absent}</td></tr><tr><td>Half days</td><td>${s.half}</td></tr><tr><td>Deduction</td><td>- ${R(ded)}</td></tr>
+ <tr><th>Net salary</th><th style="text-align:right">${R(net)}</th></tr></table>`}
+$("emp").onchange=draw;$("month").onchange=draw;draw()}
+</script></body></html>

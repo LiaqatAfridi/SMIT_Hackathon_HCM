@@ -1,0 +1,15 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Admin dashboard</title><link rel="stylesheet" href="../css/style.css"></head><body><header id="nav"></header><main><h1>Admin dashboard</h1><div class="grid" id="stats"></div>
+<div class="two"><div class="card"><h2>Today's attendance</h2><div class="tw"><table><thead><tr><th>Employee</th><th>Status</th><th>In</th><th>Out</th></tr></thead><tbody id="tod"></tbody></table></div></div>
+<div class="card"><h2>Announcements</h2><form id="annF" class="row" style="flex-wrap:nowrap"><input id="at" placeholder="Write an announcement"><button class="btn" style="margin:0;flex:0 0 auto">Post</button></form><div id="ann"></div></div></div>
+<div class="card"><h2>Smart helper</h2><div id="log"></div><form id="chatF" class="row" style="flex-wrap:nowrap"><input id="q" placeholder="Ask a question..." autocomplete="off"><button class="btn" style="margin:0;flex:0 0 auto">Ask</button></form></div><div class="card"><h2>Recent attendance records</h2><div class="tw"><table><thead><tr><th>Date</th><th>Employee</th><th>In</th><th>Out</th><th>Hours</th><th>Status</th></tr></thead><tbody id="rec"></tbody></table></div></div>
+</main><script src="../js/storage.js"></script><script src="../js/auth.js"></script><script src="../js/ui.js"></script><script src="../js/leave.js"></script><script src="../js/attendance.js"></script><script src="../js/helper.js"></script><script>
+const u=guard("admin");if(u){nav(u);const d=today();
+function draw(){const emps=getUsers().filter(x=>x.role==="employee"),att=getAtt().filter(a=>a.date===d);
+ const st=[["Employees",emps.length],["Present today",att.length],["Late today",att.filter(a=>a.status==="late").length],["On leave today",emps.filter(x=>onLeave(x.id,d)).length],["Pending leaves",getLeaves().filter(l=>l.status==="pending").length]];
+ $("stats").innerHTML=st.map(([k,v])=>`<div class="stat"><b>${v}</b>${k}</div>`).join("");
+ $("tod").innerHTML=rows(emps,x=>{const r=getRec(x.id,d);return`<tr><td>${esc(x.name)}</td><td>${r?badge(r.status):onLeave(x.id,d)?"On leave":isWork(d)?"Not in yet":"Day off"}</td><td>${r?r.in:"-"}</td><td>${r&&r.out||"-"}</td></tr>`},4);
+ $("rec").innerHTML=rows(getAtt().slice().reverse().slice(0,30),a=>`<tr><td>${a.date}</td><td>${esc(userName(a.uid))}</td><td>${a.in}</td><td>${a.out||"-"}</td><td>${a.hours}</td><td>${badge(a.status)}</td></tr>`,6);
+ renderAnn("ann")}
+$("annF").onsubmit=e=>{e.preventDefault();const t=$("at").value.trim();if(!t)return;const a=getAnn();a.push({text:t,date:d});saveAnn(a);$("at").value="";draw()};
+draw();initChat(u)}
+</script></body></html>

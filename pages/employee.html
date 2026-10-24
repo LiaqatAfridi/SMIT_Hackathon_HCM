@@ -1,0 +1,24 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>My dashboard</title><link rel="stylesheet" href="../css/style.css"></head><body><header id="nav"></header><main><h1>My dashboard</h1><div class="grid" id="stats"></div>
+<div class="two"><div class="card"><h2>Attendance today</h2><p id="today"></p><button class="btn" id="bin">Check in</button> <button class="btn gray" id="bout">Check out</button><span class="msg" id="msg"></span></div>
+<div class="card"><h2>Announcements</h2><div id="ann"></div></div></div>
+<div class="two"><div class="card"><h2>Apply for leave</h2><form id="lf"><label>Type</label><select id="type"><option value="">Select</option><option>casual</option><option>sick</option><option>annual</option></select><small class="err" id="e_type"></small>
+<div class="row"><div><label>From</label><input id="from" type="date"><small class="err" id="e_from"></small></div><div><label>To</label><input id="to" type="date"><small class="err" id="e_to"></small></div></div>
+<label>Reason</label><textarea id="reason" rows="2"></textarea><small class="err" id="e_reason"></small><button class="btn">Apply</button></form></div>
+<div class="card"><h2>Smart helper</h2><div id="log"></div><form id="chatF" class="row" style="flex-wrap:nowrap"><input id="q" placeholder="Ask a question..." autocomplete="off"><button class="btn" style="margin:0;flex:0 0 auto">Ask</button></form></div></div><div class="card"><h2>My leaves</h2><div class="tw"><table><thead><tr><th>Type</th><th>From</th><th>To</th><th>Days</th><th>Status</th><th>Admin comment</th></tr></thead><tbody id="lv"></tbody></table></div></div>
+<div class="card"><h2>My attendance</h2><div class="tw"><table><thead><tr><th>Date</th><th>In</th><th>Out</th><th>Hours</th><th>Status</th></tr></thead><tbody id="rec"></tbody></table></div></div>
+</main><script src="../js/storage.js"></script><script src="../js/auth.js"></script><script src="../js/ui.js"></script><script src="../js/leave.js"></script><script src="../js/attendance.js"></script><script src="../js/helper.js"></script><script>
+const u=guard("employee");if(u){nav(u);const d=today();
+function draw(){const r=getRec(u.id,d);
+ $("today").innerHTML=r?`${badge(r.status)} In ${r.in} · Out ${r.out||"-"}`:onLeave(u.id,d)?"You are on approved leave.":"You have not checked in yet.";
+ $("bin").disabled=!!r;$("bout").disabled=!r||!!r.out;
+ const mine=getAtt().filter(a=>a.uid===u.id),m=monthStats(u,new Date().getFullYear(),new Date().getMonth()+1);
+ $("stats").innerHTML=[["Leave days left",balance(u.id)],["Leave days used",usedDays(u.id)],["Days present (month)",m.present],["Late (month)",m.late]].map(([k,v])=>`<div class="stat"><b>${v}</b>${k}</div>`).join("");
+ $("rec").innerHTML=rows(mine.slice().reverse().slice(0,20),a=>`<tr><td>${a.date}</td><td>${a.in}</td><td>${a.out||"-"}</td><td>${a.hours}</td><td>${badge(a.status)}</td></tr>`,5);
+ $("lv").innerHTML=rows(getLeaves().filter(l=>l.uid===u.id).reverse(),l=>`<tr><td>${l.type}</td><td>${l.from}</td><td>${l.to}</td><td>${l.days}</td><td>${badge(l.status)}</td><td>${esc(l.comment)}</td></tr>`,6);
+ renderAnn("ann")}
+$("bin").onclick=()=>{$("msg").textContent=checkIn(u.id);draw()};
+$("bout").onclick=()=>{$("msg").textContent=checkOut(u.id);draw()};
+$("lf").onsubmit=e=>{e.preventDefault();const er=applyLeave(u.id,{type:$("type").value,from:$("from").value,to:$("to").value,reason:$("reason").value});
+ if(showErrs(er,["type","from","to","reason"]))$("lf").reset();draw()};
+draw();initChat(u)}
+</script></body></html>

@@ -1,0 +1,19 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Settings</title><link rel="stylesheet" href="../css/style.css"></head><body><header id="nav"></header><main><h1>Company settings</h1><div class="card" style="max-width:480px"><form id="f">
+<label>Company name</label><input id="name"><small class="err" id="e_name"></small>
+<label>Office start time</label><input id="start" type="time"><small class="err" id="e_start"></small>
+<label>Grace minutes</label><input id="grace" type="number" min="0"><small class="err" id="e_grace"></small>
+<label>Yearly leave quota (days)</label><input id="quota" type="number" min="0"><small class="err" id="e_quota"></small>
+<label>Working days</label><div id="wd" class="row"></div><small class="err" id="e_wd"></small>
+<button class="btn">Save settings</button><span id="ok" style="color:#0a7466;margin-left:8px"></span></form></div>
+</main><script src="../js/storage.js"></script><script src="../js/auth.js"></script><script src="../js/ui.js"></script><script src="../js/leave.js"></script><script src="../js/attendance.js"></script><script src="../js/helper.js"></script><script>
+const u=guard("admin");if(u){nav(u);const c=getCompany(),D=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+$("name").value=c.name;$("start").value=c.start;$("grace").value=c.grace;$("quota").value=c.quota;
+$("wd").innerHTML=D.map((n,i)=>`<label style="margin:0;font-weight:400;flex:0 0 auto"><input type="checkbox" style="width:auto" value="${i}" ${c.workDays.includes(i)?"checked":""}> ${n}</label>`).join("");
+$("f").onsubmit=e=>{e.preventDefault();const er={},w=[...document.querySelectorAll("#wd input:checked")].map(x=>+x.value);
+ if(!$("name").value.trim())er.name="Required";if(!$("start").value)er.start="Required";
+ if($("grace").value===""||+$("grace").value<0)er.grace="Enter 0 or more";
+ if($("quota").value===""||+$("quota").value<0)er.quota="Enter 0 or more";
+ if(!w.length)er.wd="Choose at least one working day";
+ if(!showErrs(er,["name","start","grace","quota","wd"]))return;
+ saveCompany({name:$("name").value.trim(),start:$("start").value,grace:+$("grace").value,quota:+$("quota").value,workDays:w});$("ok").textContent="Saved"}}
+</script></body></html>

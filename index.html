@@ -1,0 +1,27 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>HCM Lite</title><link rel="stylesheet" href="css/style.css"></head>
+<body><div class="auth card"><h1>HCM Lite</h1>
+<form id="setup" hidden><p>First run: create your company and Admin account.</p>
+<label>Company name</label><input id="cn"><small class="err" id="e_cn"></small>
+<label>Admin name</label><input id="an"><small class="err" id="e_an"></small>
+<label>Admin email</label><input id="ae"><small class="err" id="e_ae"></small>
+<label>Password (min 4)</label><input id="ap" type="password"><small class="err" id="e_ap"></small>
+<button class="btn">Create company</button></form>
+<form id="login" hidden><h2 id="co"></h2><label>Email</label><input id="le"><label>Password</label><input id="lp" type="password">
+<small class="err" id="e_l"></small><button class="btn">Log in</button></form></div>
+<script src="js/storage.js"></script><script src="js/auth.js"></script><script>
+const go=u=>location.href="pages/"+homeFor(u);
+const s=getSession(),cu=s&&getUsers().find(x=>x.id===s.id);if(cu)go(cu);
+const c=getCompany();$(c?"login":"setup").hidden=false;if(c)$("co").textContent=c.name;
+const errs=(er,f)=>f.forEach(k=>$("e_"+k).textContent=er[k]||"");
+$("setup").onsubmit=e=>{e.preventDefault();const er={};
+ if(!$("cn").value.trim())er.cn="Company name is required";
+ if(!$("an").value.trim())er.an="Name is required";
+ if(!/^\S+@\S+\.\S+$/.test($("ae").value.trim()))er.ae="Enter a valid email";
+ if($("ap").value.length<4)er.ap="Password must be at least 4 characters";
+ errs(er,["cn","an","ae","ap"]);if(Object.keys(er).length)return;
+ saveCompany({name:$("cn").value.trim(),start:"09:00",grace:15,quota:20,workDays:[1,2,3,4,5]});
+ const a={id:Date.now(),name:$("an").value.trim(),email:$("ae").value.trim(),password:$("ap").value,role:"admin",department:"Management",salary:0,joined:today()};
+ saveUsers([a]);DB.set("hcm_session",{id:a.id});go(a)};
+$("login").onsubmit=e=>{e.preventDefault();const u=login($("le").value,$("lp").value);
+ if(!u)return $("e_l").textContent="Wrong email or password";go(u)};
+</script></body></html>

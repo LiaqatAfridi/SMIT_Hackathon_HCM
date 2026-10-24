@@ -1,0 +1,61 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Analytics</title><link rel="stylesheet" href="../css/style.css"></head><body><header id="nav"></header><main><h1>Analytics dashboard</h1>
+<div class="card noprint"><div class="row"><div><label>Month</label><input type="month" id="month"></div><div><label>Department</label><select id="dep"></select></div></div>
+<button class="btn" id="csv">Export table as CSV</button> <button class="btn gray" onclick="print()">Print report</button><span class="msg" id="warn"></span></div>
+<div class="grid" id="kpi"></div>
+<div class="card"><h2>Insights</h2><ul id="ins"></ul></div>
+<div class="two"><div class="card"><h2>Attendance status</h2><div style="height:240px"><canvas id="c1"></canvas></div></div>
+<div class="card"><h2>Daily check-ins (trend)</h2><div style="height:240px"><canvas id="c3"></canvas></div></div></div>
+<div class="two"><div class="card"><h2>Attendance by department</h2><div style="height:240px"><canvas id="c2"></canvas></div></div>
+<div class="card"><h2>Leave requests by type</h2><div style="height:240px"><canvas id="c4"></canvas></div></div></div>
+<div class="two"><div class="card"><h2>Salary and deductions by department</h2><div style="height:240px"><canvas id="c5"></canvas></div></div>
+<div class="card"><h2>Late + absent days per employee</h2><div style="height:240px"><canvas id="c6"></canvas></div></div></div>
+<div class="card"><h2>Employee report</h2><div class="tw"><table><thead><tr><th>Employee</th><th>Dept</th><th>Present</th><th>Late</th><th>Half</th><th>Absent</th><th>Attendance %</th><th>Avg hours</th><th>Leave used</th><th>Leave left</th><th>Deduction</th><th>Net salary</th></tr></thead><tbody id="tb"></tbody></table></div></div>
+</main><script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script><script src="../js/storage.js"></script><script src="../js/auth.js"></script><script src="../js/ui.js"></script><script src="../js/leave.js"></script><script src="../js/attendance.js"></script><script>
+const u=guard("admin");if(u){nav(u);
+if(typeof Chart==="undefined")$("warn").textContent="Charts need internet (Chart.js CDN).";
+const C={ok:"#0f9d8a",late:"#e8962e",half:"#d64545",abs:"#6b7686",v:"#5b4fc9"},ch={},f1=n=>(+n).toFixed(1),f0=n=>Math.round(n).toLocaleString();
+const mk=(id,cfg)=>{if(typeof Chart==="undefined")return;ch[id]&&ch[id].destroy();cfg.options={maintainAspectRatio:false,...(cfg.options||{})};ch[id]=new Chart($(id),cfg)};
+$("month").value=today().slice(0,7);
+const deps=[...new Set(getUsers().filter(x=>x.role==="employee").map(x=>x.department))];
+$("dep").innerHTML='<option value="">All departments</option>'+deps.map(d=>`<option>${esc(d)}</option>`).join("");
+let data=[];
+function draw(){
+ const mo=$("month").value,[y,m]=mo.split("-").map(Number),dep=$("dep").value,wd=workDaysInMonth(y,m);
+ const emps=getUsers().filter(x=>x.role==="employee"&&(!dep||x.department===dep)),ids=emps.map(e=>e.id);
+ data=emps.map(e=>{const s=monthStats(e,y,m),r=getAtt().filter(a=>a.uid===e.id&&a.date.startsWith(mo)&&a.out),den=s.present+s.absent,ded=wd?e.salary/wd*(s.absent+.5*s.half):0;
+  return{e,...s,hrs:r.length?r.reduce((t,a)=>t+a.hours,0)/r.length:0,rate:den?s.present/den*100:0,ded,net:e.salary-ded,used:usedDays(e.id),left:balance(e.id)}});
+ const sum=k=>data.reduce((t,d)=>t+d[k],0),P=sum("present"),L=sum("late"),H=sum("half"),A=sum("absent"),ok=P-L-H;
+ const lv=getLeaves().filter(l=>ids.includes(l.uid)),ap=lv.filter(l=>l.status==="approved").length,rj=lv.filter(l=>l.status==="rejected").length,pe=lv.filter(l=>l.status==="pending").length;
+ const hrsAll=data.filter(d=>d.hrs>0);
+ $("kpi").innerHTML=[["Employees",emps.length],["Monthly payroll","Rs "+f0(sum("e")||emps.reduce((t,e)=>t+e.salary,0))],["Attendance rate",(P+A?f1(P/(P+A)*100):0)+"%"],["Late rate",(P?f1(L/P*100):0)+"%"],["Avg work hours",hrsAll.length?f1(hrsAll.reduce((t,d)=>t+d.hrs,0)/hrsAll.length):"0"],["Pending leaves",pe],["Leave approval",(ap+rj?f1(ap/(ap+rj)*100):0)+"%"],["Deductions","Rs "+f0(sum("ded"))]].map(([k,v])=>`<div class="stat"><b style="font-size:22px">${v}</b>${k}</div>`).join("");
+ // department aggregates
+ const D={};data.forEach(d=>{const k=d.e.department,o=D[k]||(D[k]={ok:0,late:0,half:0,abs:0,sal:0,ded:0});o.ok+=d.present-d.late-d.half;o.late+=d.late;o.half+=d.half;o.abs+=d.absent;o.sal+=d.e.salary;o.ded+=d.ded});
+ const dn=Object.keys(D);
+ // insights
+ const I=[],act=data.filter(d=>d.present+d.absent>0),ml=[...data].sort((a,b)=>b.late-a.late)[0],lr=[...act].sort((a,b)=>a.rate-b.rate)[0],da=dn.slice().sort((a,b)=>D[b].abs-D[a].abs)[0],lu=[...data].sort((a,b)=>b.used-a.used)[0];
+ if(!emps.length)I.push("No employees yet. Add employees and record attendance to see analysis.");
+ else{if(ml&&ml.late>0)I.push(`Most late arrivals: <b>${esc(ml.e.name)}</b> (${ml.late} day(s)).`);
+  if(lr)I.push(`Lowest attendance: <b>${esc(lr.e.name)}</b> at ${f1(lr.rate)}%.`);
+  if(da&&D[da].abs>0)I.push(`Department with most absences: <b>${esc(da)}</b> (${D[da].abs} day(s)).`);
+  if(lu&&lu.used>0)I.push(`Highest leave usage: <b>${esc(lu.e.name)}</b> (${lu.used} of ${getCompany().quota} days).`);
+  I.push(`Total salary deduction this month: <b>Rs ${f0(sum("ded"))}</b> (${f1(sum("ded")/(emps.reduce((t,e)=>t+e.salary,0)||1)*100)}% of payroll).`);
+  if(pe)I.push(`${pe} leave request(s) are waiting for approval.`);
+  if(I.length===1)I.push("Not enough attendance data yet for more insights.")}
+ $("ins").innerHTML=I.map(x=>`<li>${x}</li>`).join("");
+ // charts
+ mk("c1",{type:"doughnut",data:{labels:["On time","Late","Half day","Absent"],datasets:[{data:[ok,L,H,A],backgroundColor:[C.ok,C.late,C.half,C.abs]}]}});
+ mk("c2",{type:"bar",data:{labels:dn,datasets:[["On time","ok",C.ok],["Late","late",C.late],["Half","half",C.half],["Absent","abs",C.abs]].map(([n,k,c])=>({label:n,data:dn.map(d=>D[d][k]),backgroundColor:c}))},options:{scales:{x:{stacked:true},y:{stacked:true,beginAtZero:true}}}});
+ const days=[],cnt=[],last=new Date(y,m,0).getDate();
+ for(let i=1;i<=last;i++){const s=`${mo}-${pad(i)}`;if(s>today())break;if(isWork(s)){days.push(i);cnt.push(getAtt().filter(a=>a.date===s&&ids.includes(a.uid)).length)}}
+ mk("c3",{type:"line",data:{labels:days,datasets:[{label:"Check-ins",data:cnt,borderColor:C.v,backgroundColor:C.v,tension:.3}]},options:{scales:{y:{beginAtZero:true,ticks:{precision:0}}}}});
+ const T=["casual","sick","annual"];
+ mk("c4",{type:"bar",data:{labels:T,datasets:[["approved",C.ok],["pending",C.late],["rejected",C.half]].map(([s,c])=>({label:s,data:T.map(t=>lv.filter(l=>l.type===t&&l.status===s).length),backgroundColor:c}))},options:{scales:{x:{stacked:true},y:{stacked:true,beginAtZero:true,ticks:{precision:0}}}}});
+ mk("c5",{type:"bar",data:{labels:dn,datasets:[{label:"Salary",data:dn.map(d=>D[d].sal),backgroundColor:C.v},{label:"Deductions",data:dn.map(d=>Math.round(D[d].ded)),backgroundColor:C.half}]},options:{scales:{y:{beginAtZero:true}}}});
+ mk("c6",{type:"bar",data:{labels:data.map(d=>d.e.name),datasets:[{label:"Late",data:data.map(d=>d.late),backgroundColor:C.late},{label:"Absent",data:data.map(d=>d.absent),backgroundColor:C.abs}]},options:{indexAxis:"y",scales:{x:{stacked:true,ticks:{precision:0}},y:{stacked:true}}}});
+ $("tb").innerHTML=rows(data,d=>`<tr><td>${esc(d.e.name)}</td><td>${esc(d.e.department)}</td><td>${d.present}</td><td>${d.late}</td><td>${d.half}</td><td>${d.absent}</td><td>${f1(d.rate)}%</td><td>${f1(d.hrs)}</td><td>${d.used}</td><td>${d.left}</td><td>${f0(d.ded)}</td><td>${f0(d.net)}</td></tr>`,12)}
+$("csv").onclick=()=>{const h=["Employee","Department","Present","Late","Half","Absent","Attendance %","Avg hours","Leave used","Leave left","Deduction","Net salary"];
+ const r=data.map(d=>[d.e.name,d.e.department,d.present,d.late,d.half,d.absent,f1(d.rate),f1(d.hrs),d.used,d.left,Math.round(d.ded),Math.round(d.net)]);
+ const t=[h,...r].map(a=>a.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(",")).join("\n");
+ const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([t],{type:"text/csv"}));a.download=`analytics-${$("month").value}.csv`;a.click()};
+$("month").onchange=draw;$("dep").onchange=draw;draw()}
+</script></body></html>
